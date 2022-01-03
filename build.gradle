@@ -1,0 +1,75 @@
+plugins {
+    id 'org.springframework.boot' version '2.6.2'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'java'
+    id "org.hidetake.ssh" version "2.10.1"
+}
+
+group = 'com.genug'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+
+    implementation group: 'org.hidetake', name: 'gradle-ssh-plugin', version: '2.2.0'
+
+    compileOnly 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+remotes {
+    publicServer {
+        host = project.properties["udp-server.host"]
+        port = project.properties["udp-server.port"].toInteger()
+        user = project.properties["udp-server.user"]
+        password = project.properties["udp-server.password"]
+        knownHosts = allowAnyHosts //알 수 없는 호스트라도 접속 가능
+    }
+}
+
+task scp {
+    doLast {
+        ssh.run {
+
+            //remotes.publicServer으로 호스트 세션 시작
+            session(remotes.publicServer) {
+
+                println "dir:${buildDir}/${project.name}-${version}.jar"
+
+                // war 파일명을 로컬변수에 지정
+                final jarName = "${buildDir}/libs/${project.name}-${version}.jar"
+                println "JAR 이름 : ${jarName}"
+
+                println "udp-server JAR 파일 전송 시작"
+                /*
+                        from : 현재 폴더를 기준으로 from path 지정
+                        into : 도착서버의 디렉토리 path 지정
+                */
+                put from: "${jarName}", into: project.properties["udp-server.dir"]
+
+                println project.properties["udp-server.dir"]
+                println "udp-server JAR 파일 전송 완료"
+            }
+        }
+    }
+}
+
+apply plugin: 'org.hidetake.ssh'
